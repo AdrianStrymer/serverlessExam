@@ -12,7 +12,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   try {
     console.log("Event: ", JSON.stringify(event));
 
-    const { role, movieId } = event.pathParameters ||  {};
+    const { role, movieId } = event.pathParameters || {};
+    const nameSubstring = event.queryStringParameters?.name || "";
 
     if (!role || !movieId) {
       return {
@@ -33,10 +34,17 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 
     const queryOutput = await ddbDocClient.send(new QueryCommand(queryInput));
 
+    // Filter the results if nameSubstring is provided
+    const filteredItems = (queryOutput.Items || []).filter((item: any) =>
+      nameSubstring
+        ? item.name && item.name.toLowerCase().includes(nameSubstring.toLowerCase())
+        : true
+    );
+
     return {
       statusCode: 200,
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ data: queryOutput.Items || [] }),
+      body: JSON.stringify({ data: filteredItems }),
     };
   } catch (error: any) {
     console.error("Error: ", JSON.stringify(error));
@@ -49,16 +57,16 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 };
 
 function createDocumentClient() {
-    const ddbClient = new DynamoDBClient({ region: process.env.REGION });
-    const marshallOptions = {
-      convertEmptyValues: true,
-      removeUndefinedValues: true,
-      convertClassInstanceToMap: true,
-    };
-    const unmarshallOptions = {
-      wrapNumbers: false,
-    };
-    const translateConfig = { marshallOptions, unmarshallOptions };
-    return DynamoDBDocumentClient.from(ddbClient, translateConfig);
-  }
+  const ddbClient = new DynamoDBClient({ region: process.env.REGION });
+  const marshallOptions = {
+    convertEmptyValues: true,
+    removeUndefinedValues: true,
+    convertClassInstanceToMap: true,
+  };
+  const unmarshallOptions = {
+    wrapNumbers: false,
+  };
+  const translateConfig = { marshallOptions, unmarshallOptions };
+  return DynamoDBDocumentClient.from(ddbClient, translateConfig);
+}
 
