@@ -50,6 +50,22 @@ export class RestAPIStack extends cdk.Stack {
     });
 
     // Functions
+    const getCrewByRoleAndMovieFn = new lambdanode.NodejsFunction(
+      this,
+      "GetCrewByRoleAndMovieFn",
+      {
+        architecture: lambda.Architecture.ARM_64,
+        runtime: lambda.Runtime.NODEJS_18_X,
+        entry: `${__dirname}/../lambdas/getCrewByRoleAndMovie.ts`,
+        timeout: cdk.Duration.seconds(10),
+        memorySize: 128,
+        environment: {
+          MOVIE_CREW_TABLE_NAME: movieCrewTable.tableName,
+          REGION: "eu-west-1",
+        },
+      }
+    );
+
     const getMovieByIdFn = new lambdanode.NodejsFunction(
       this,
       "GetMovieByIdFn",
@@ -142,6 +158,10 @@ export class RestAPIStack extends cdk.Stack {
 
     const movieEndpoint = moviesEndpoint.addResource("{movieId}");
 
+    const crewEndpoint = api.root.addResource("crew");
+    const roleEndpoint = crewEndpoint.addResource("{role}");
+    const movieRoleEndpoint = roleEndpoint.addResource("movies").addResource("{movieId}");
+
     movieEndpoint.addMethod(
       "GET",
       new apig.LambdaIntegration(getMovieByIdFn, { proxy: true })
@@ -158,10 +178,17 @@ export class RestAPIStack extends cdk.Stack {
       new apig.LambdaIntegration(deleteMovieByIdFn, { proxy: true })
     );
 
+    movieRoleEndpoint.addMethod(
+      "GET",
+      new apig.LambdaIntegration(getCrewByRoleAndMovieFn, { proxy: true })
+    );
+    
+
     // Permissions;
     moviesTable.grantReadData(getMovieByIdFn);
     moviesTable.grantReadWriteData(deleteMovieByIdFn);
     movieCastsTable.grantReadData(getMovieCastMembersFn);
     movieCastsTable.grantReadData(getMovieByIdFn);
+    movieCrewTable.grantReadData(getCrewByRoleAndMovieFn);
   }
 }
